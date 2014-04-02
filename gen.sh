@@ -12,12 +12,15 @@ WORK_DIM_MAP=${BASE_DIR}/work/dim.map
 
 BASE_FRAMEWORK_COLOR_MAP=${BASE_DIR}/framework-res_color.map
 BASE_FRAMEWORK_DIM_MAP=${BASE_DIR}/framework-res_dimens.map
+BASE_SYSTEMUI_COLOR_MAP=${BASE_DIR}/systemui_color.map
+BASE_SYSTEMUI_DIM_MAP=${BASE_DIR}/systemui_dimens.map
 
 TYPE_DRAWABLE=drawable
 
 m_workFile=$1
 m_workApktooled=""
 m_workUnziped=""
+#m_targetPath=""
 
 function toLog() {
     echo "$*" # >> ${BASE_DIR}/Log.txt
@@ -38,6 +41,8 @@ function initDirs() {
     else
 	local base=${m_workFile}
     fi
+    
+    TRAGET_DIR=${TRAGET_DIR}/$base
     
     m_workApktooled=${base}_apktool
     m_workUnziped=${base}_unzip
@@ -159,7 +164,7 @@ function copyFrameworkDrawable() {
         #echo "***** tmp is $tmp"
         #echo "====== type is $type, name is $name"
         
-        if [ $type==${TYPE_DRAWABLE} ]; then
+        if [ $type == ${TYPE_DRAWABLE} ]; then
             echo "copy file $name ==="
             
             copyDrawable $name $resPath #&
@@ -172,18 +177,22 @@ function copyFrameworkDrawable() {
 function genFrameworkValues() {
     echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > ${TRAGET_DIR}/framework-res/theme_values.xml
     echo "<ChaOS_Theme_Values>" >> ${TRAGET_DIR}/framework-res/theme_values.xml
+
+    local type=""
+    local t=""
+    local value=""
     
     #for colors
     cat ${BASE_FRAMEWORK_COLOR_MAP} | while read line
     do
         #dim_foreground_dark_inverse:#ff323232
-        local type=`echo $line | awk -F ":" '{print $1}'`
+        type=`echo $line | awk -F ":" '{print $1}'`
         cat ${WORK_COLOR_MAP} | while read types
         do
 	    #holo_blue_bright:#ff00ddff
-	    local t=`echo $types | awk -F ":" '{print $1}'`
-	    if [ $t==$type ]; then
-		local value=`echo $types | awk -F ":" '{print $2}'`
+	    t=`echo $types | awk -F ":" '{print $1}'`
+	    if [ $type == $t ]; then
+		value=`echo $types | awk -F ":" '{print $2}'`
 		echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/framework-res/theme_values.xml
 		break
 	    fi
@@ -193,7 +202,59 @@ function genFrameworkValues() {
     echo "</ChaOS_Theme_Values>" >> ${TRAGET_DIR}/framework-res/theme_values.xml
 }
 
+##Just a copy..
+function genSystemUIValues() {
+    echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+    echo "<ChaOS_Theme_Values>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+    
+    local type=""
+    local t=""
+    local value=""
+    #for colors
+    cat ${BASE_SYSTEMUI_COLOR_MAP} | while read line
+    do
+        #dim_foreground_dark_inverse:#ff323232
+        type=`echo $line | awk -F ":" '{print $1}'`
+        cat ${WORK_COLOR_MAP} | while read types
+        do
+            #holo_blue_bright:#ff00ddff
+	    t=`echo $types | awk -F ":" '{print $1}'`
+	    if [ $type == $t ]; then
+		value=`echo $types | awk -F ":" '{print $2}'`
+		echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+		break
+	    fi
+        done
+    done
+    
+    echo "</ChaOS_Theme_Values>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+}
 
+function copySystemUIDrawable() {
+    local resPath=${TRAGET_DIR}/com.android.systemui/res
+    if [ ! -d $resPath ]; then
+        mkdir -p $resPath
+    fi
+
+    local file=${m_workApktooled}/res/xml/com_android_systemui.xml
+    cat $file | while read line
+    do
+        #echo "$line"
+        #<item name="drawable/btn_star_on_focused_holo_light">@drawable/frameworks_res_btn_star_on_focused_holo_light</item>
+        tmp=`echo $line | awk '{print $2}' | awk -F "\">@" '{print $1}' | awk -F "=\"" '{print $2}'`
+        type=`echo $tmp | awk -F "/" '{print $1}'`
+        name=`echo $tmp | awk -F "/" '{print $2}'`
+        
+        #echo "***** tmp is $tmp"
+        #echo "====== type is $type, name is $name"
+        
+        if [ $type == ${TYPE_DRAWABLE} ]; then
+            echo "copy file $name ==="
+            
+            copyDrawable $name $resPath #&
+        fi
+    done
+}
 
 
 function initBase() {
@@ -216,8 +277,8 @@ initBase
 copyFrameworkDrawable
 genFrameworkValues
 
-
-
+copySystemUIDrawable
+genSystemUIValues
 
 
 
