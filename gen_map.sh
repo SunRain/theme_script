@@ -2,6 +2,13 @@
 
 BASE=`pwd`
 
+packageName=$1
+
+if [ -z $packageName ]; then
+    echo "no packageName found exit"
+    exit 1
+fi
+
 cat colors.xml | while read line
 do
     if ! echo $line | grep "name"; then
@@ -23,7 +30,7 @@ do
     
     echo "localItem is $itemName, value is $itemVaule"
     
-    echo $itemName:$itemVaule >> framework-res_color.map
+    echo $itemName:$itemVaule >> ${packageName}_color.map
 done
 
 cat dimens.xml | while read line
@@ -47,5 +54,5 @@ do
     
     echo "localItem is $itemName, value is $itemVaule"
     
-    echo $itemName:$itemVaule >> framework-res_dimens.map
+    echo $itemName:$itemVaule >> ${packageName}_dim.map
 done

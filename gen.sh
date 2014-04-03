@@ -5,22 +5,22 @@ WORK_DIR=${BASE_DIR}/work
 TRAGET_DIR=${BASE_DIR}/target
 LOG_FILE=${BASE_DIR}/Log.txt
 
-WORK_COLOR_MAP=${BASE_DIR}/work/color.map
-WORK_DIM_MAP=${BASE_DIR}/work/dim.map
+WORK_COLOR_MAP="" #${BASE_DIR}/work/color.map
+WORK_DIM_MAP="" #${BASE_DIR}/work/dim.map
 #WORK_SYSTEMUI_RES_MAP=${BASE_DIR}/work/systemui-res.map
 #WORK_SYSTEMUI_DIM_MAP=${BASE_DIR}/work/systemui-dim.map
 
-BASE_FRAMEWORK_COLOR_MAP=${BASE_DIR}/framework-res_color.map
-BASE_FRAMEWORK_DIM_MAP=${BASE_DIR}/framework-res_dimens.map
-BASE_SYSTEMUI_COLOR_MAP=${BASE_DIR}/systemui_color.map
-BASE_SYSTEMUI_DIM_MAP=${BASE_DIR}/systemui_dimens.map
+#BASE_FRAMEWORK_COLOR_MAP=${BASE_DIR}/framework-res_color.map
+#BASE_FRAMEWORK_DIM_MAP=${BASE_DIR}/framework-res_dimens.map
+#BASE_SYSTEMUI_COLOR_MAP=${BASE_DIR}/systemui_color.map
+#BASE_SYSTEMUI_DIM_MAP=${BASE_DIR}/systemui_dimens.map
 
 TYPE_DRAWABLE=drawable
 
 m_workFile=$1
 m_workApktooled=""
 m_workUnziped=""
-#m_targetPath=""
+m_targetPath=""
 
 function toLog() {
     echo "$*" # >> ${BASE_DIR}/Log.txt
@@ -42,6 +42,9 @@ function initDirs() {
 	local base=${m_workFile}
     fi
     
+    WORK_COLOR_MAP=${BASE_DIR}/work/${base}_color.map
+    WORK_DIM_MAP=${BASE_DIR}/work/${base}_dim.map
+
     TRAGET_DIR=${TRAGET_DIR}/$base
     
     m_workApktooled=${base}_apktool
@@ -105,6 +108,7 @@ function genApktooldResMap() {
 
 #输入指定的图片名称,然后在以zip模式解压的目录里面搜索图片,并复制到目标目录
 #搜索zip目录是由于apktool解压后.9文件也会被反编译,而我们并不需要反编译.9文件
+#######################################
 
 #<item name="drawable/btn_star_on_focused_holo_dark">@drawable/frameworks_res_btn_star_on_focused_holo_dark</item>
 #$1 => btn_star_on_focused_holo_dark
@@ -122,7 +126,7 @@ function copyDrawable() {
         return
     fi
     
-    toLog "search ${m_workUnziped} for name $name"
+    toLog "search [${m_workUnziped}] for name [$name]"
     
     for i in `find ${m_workUnziped} -iname *${name}*`
     do
@@ -146,13 +150,30 @@ function copyDrawable() {
     done
 }
 
-function copyFrameworkDrawable() {
-    local resPath=${TRAGET_DIR}/framework-res/res
+function copyDrawableRes() {
+    #com.android.mms
+    local packageName=$1
+    toLog "================== Copy drawable for package [$packageName] ==========================="
+
+    if [ -z $packageName ]; then
+        toLog "No packageName found, exit"
+        return 1
+    fi
+    
+    #local resPath
+    #local file
+    if [ $packageName == "framework-res" ]; then
+        local resPath=${TRAGET_DIR}/framework-res/res
+        local file=${m_workApktooled}/res/xml/android.xml
+    else
+        local resPath=${TRAGET_DIR}/$packageName/res
+        local file=${m_workApktooled}/res/xml/$(echo $packageName | sed 's#\.#_#g').xml
+    fi
+
     if [ ! -d $resPath ]; then
         mkdir -p $resPath
     fi
 
-    local file=${m_workApktooled}/res/xml/android.xml
     cat $file | while read line
     do
         #echo "$line"
@@ -160,30 +181,39 @@ function copyFrameworkDrawable() {
         tmp=`echo $line | awk '{print $2}' | awk -F "\">@" '{print $1}' | awk -F "=\"" '{print $2}'`
         type=`echo $tmp | awk -F "/" '{print $1}'`
         name=`echo $tmp | awk -F "/" '{print $2}'`
-        
-        #echo "***** tmp is $tmp"
-        #echo "====== type is $type, name is $name"
-        
-        if [ $type == ${TYPE_DRAWABLE} ]; then
-            echo "copy file $name ==="
-            
+
+        if [ "$type" == "${TYPE_DRAWABLE}" ]; then
+            echo "** Copy file $name"
+
             copyDrawable $name $resPath #&
         fi
     done
 }
 
-
 ##Really ugly, but works atm....
-function genFrameworkValues() {
-    echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > ${TRAGET_DIR}/framework-res/theme_values.xml
-    echo "<ChaOS_Theme_Values>" >> ${TRAGET_DIR}/framework-res/theme_values.xml
+function genValuesRes() {
+        #com.android.mms
+    local packageName=$1
+    
+    if [ -z $packageName ]; then
+        toLog "No packageName found, exit"
+        return 1
+    fi
 
+    baseColorMap=${packageName}_color.map
+    baseDimMap=${packageName}_dim.map
+    #echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+    #echo "<ChaOS_Theme_Values>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+    echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > ${TRAGET_DIR}/$packageName/theme_values.xml
+    echo "<ChaOS_Theme_Values>" >> ${TRAGET_DIR}/$packageName/theme_values.xml
+
+    
     local type=""
     local t=""
     local value=""
     
     #for colors
-    cat ${BASE_FRAMEWORK_COLOR_MAP} | while read line
+    cat $baseColorMap | while read line
     do
         #dim_foreground_dark_inverse:#ff323232
         type=`echo $line | awk -F ":" '{print $1}'`
@@ -193,69 +223,66 @@ function genFrameworkValues() {
 	    t=`echo $types | awk -F ":" '{print $1}'`
 	    if [ $type == $t ]; then
 		value=`echo $types | awk -F ":" '{print $2}'`
-		echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/framework-res/theme_values.xml
+		echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/$packageName/theme_values.xml
+		#echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
 		break
 	    fi
         done
     done
     
-    echo "</ChaOS_Theme_Values>" >> ${TRAGET_DIR}/framework-res/theme_values.xml
-}
-
-##Just a copy..
-function genSystemUIValues() {
-    echo "<?xml version=\"1.0\" encoding=\"utf-8\"?>" > ${TRAGET_DIR}/com.android.systemui/theme_values.xml
-    echo "<ChaOS_Theme_Values>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
-    
-    local type=""
-    local t=""
-    local value=""
-    #for colors
-    cat ${BASE_SYSTEMUI_COLOR_MAP} | while read line
+    #for dim
+    cat $baseDimMap | while read line
     do
         #dim_foreground_dark_inverse:#ff323232
         type=`echo $line | awk -F ":" '{print $1}'`
-        cat ${WORK_COLOR_MAP} | while read types
+        cat ${WORK_DIM_MAP} | while read types
         do
-            #holo_blue_bright:#ff00ddff
+	    #holo_blue_bright:#ff00ddff
 	    t=`echo $types | awk -F ":" '{print $1}'`
 	    if [ $type == $t ]; then
 		value=`echo $types | awk -F ":" '{print $2}'`
-		echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+		#<dimen name="system_bar_icon_size">32.0dip</dimen>
+		echo "<dimen name=\"$type\">$value</dimen>" >> ${TRAGET_DIR}/$packageName/theme_values.xml
+		#echo "<color name=\"$type\">$value</color>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
 		break
 	    fi
         done
     done
-    
-    echo "</ChaOS_Theme_Values>" >> ${TRAGET_DIR}/com.android.systemui/theme_values.xml
+
+    echo "</ChaOS_Theme_Values>" >> ${TRAGET_DIR}/$packageName/theme_values.xml
+}
+
+function copyFrameworkDrawable() {
+    copyDrawableRes "framework-res"
+}
+
+function genFrameworkValues() {
+    genValuesRes "framework-res"
+}
+
+function genSystemUIValues() {
+    genValuesRes "com.android.systemui"
 }
 
 function copySystemUIDrawable() {
-    local resPath=${TRAGET_DIR}/com.android.systemui/res
-    if [ ! -d $resPath ]; then
-        mkdir -p $resPath
-    fi
-
-    local file=${m_workApktooled}/res/xml/com_android_systemui.xml
-    cat $file | while read line
-    do
-        #echo "$line"
-        #<item name="drawable/btn_star_on_focused_holo_light">@drawable/frameworks_res_btn_star_on_focused_holo_light</item>
-        tmp=`echo $line | awk '{print $2}' | awk -F "\">@" '{print $1}' | awk -F "=\"" '{print $2}'`
-        type=`echo $tmp | awk -F "/" '{print $1}'`
-        name=`echo $tmp | awk -F "/" '{print $2}'`
-        
-        #echo "***** tmp is $tmp"
-        #echo "====== type is $type, name is $name"
-        
-        if [ $type == ${TYPE_DRAWABLE} ]; then
-            echo "copy file $name ==="
-            
-            copyDrawable $name $resPath #&
-        fi
-    done
+    copyDrawableRes "com.android.systemui"
 }
 
+function genSettingsValues() {
+    genValuesRes "com.android.settings"
+}
+
+function copySettingsDrawable() {
+    copyDrawableRes "com.android.settings"
+}
+
+function genMmsValues() {
+    genValuesRes "com.android.mms"
+}
+
+function copyMmsDrawable() {
+    copyDrawableRes "com.android.mms"
+}
 
 function initBase() {
     initDirs
@@ -274,18 +301,24 @@ rm ${LOG_FILE}
 
 initBase
 
-copyFrameworkDrawable
-genFrameworkValues
+ copyFrameworkDrawable
 
-copySystemUIDrawable
-genSystemUIValues
+ genFrameworkValues
 
+  copySystemUIDrawable
+  genSystemUIValues
 
+  copySettingsDrawable
+  genSettingsValues
 
+  copyMmsDrawable
+  genMmsValues
 
+copyDrawableRes "com.android.contacts"
+genValuesRes "com.android.contacts"
 
-
-
+copyDrawableRes "com.android.dialer"
+genValuesRes "com.android.dialer"
 
 
 

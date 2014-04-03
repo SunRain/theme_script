@@ -1,0 +1,17 @@
+message_item_avatar_on_right_text_indent:50.0dip
+message_item_text_padding_left_right:12.0dip
+message_item_text_padding_top:5.0dip
+avatar_width_height:64.0dip
+input_text_height:48.0dip
+input_text_height_adjusted:8.0dip
+mms_inline_attachment_size:178.0dip
+widget_margin_top:0.0dip
+widget_margin_left:0.0dip
+widget_margin_right:0.0dip
+widget_margin_bottom:0.0dip
+banner_s_space:4.0dip
+banner_m_space:8.0dip
+chip_padding:8.0dip
+chip_height:32.0dip
+chip_text_size:14.0sp
+line_spacing_extra:4.0dip
